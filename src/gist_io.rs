@@ -1,12 +1,10 @@
 use reqwest::Client;
 use std::fmt::Error;
 use tokio::runtime::Runtime;
-use serde::Deserialize;
+use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 
-#[derive(Debug, Clone)]
-struct NoGistError;
-
+#[derive(Debug)]
 pub struct GistIo {
     client: Client,
     url: String,
@@ -14,15 +12,20 @@ pub struct GistIo {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct File {
+    filename: String,
+}
+
+#[derive(Deserialize, Debug)]
 struct GetResp {
     id: String,
-    files: HashMap<String, HashMap<String, String>>,
+    files: HashMap<String, File>,
 }
 
 impl GistIo {
     pub fn new(token: &str) -> GistIo {
         let client = Client::new();
-        let url: String = String::from("https://api.github.com/gists");
+        let url: String = String::from("https://api.github.com");
         GistIo {
             client,
             url,
@@ -32,15 +35,23 @@ impl GistIo {
 
     fn find_id(self, gist_name: &str) -> Option<String> {
         let rt = Runtime::new().unwrap();
-        let response = rt.block_on(self.client.get(&format!("{}/gist", &self.url))
-            .header("Authorization", format!("token {}", self.git_token))
-            .send());
+        let resp_built = self.client.get(&format!("{}/gists", &self.url))
+            .header("Authorization", format!("token {}", &self.git_token))
+            .header("user-agent", "reqwest/0.11.1");
+        let response = rt.block_on(resp_built.send());
         let response_contents = match response {
             Ok(res) => {
-                rt.block_on(res.json::<Vec<GetResp>>()).unwrap()
+                match rt.block_on(res.json::<Vec<GetResp>>()) {
+                    Ok(str) => str,
+                    Err(e) => {
+                        println!("{}", e.to_string());
+                        return None
+                    }
+                }
             },
             Err(e) => return None,
         };
+
         for gist in response_contents {
             if gist.files.contains_key(gist_name) {
                 return Some(gist.id)
@@ -48,7 +59,6 @@ impl GistIo {
         }
         return None
     }
-
 
     fn make_gist_name(name: &str) -> String {
         format!("file_sync_{}", name)
@@ -84,7 +94,7 @@ mod tests {
             git_token: token,
         };
 
-        let _m = mockito::mock("GET", "/gist")
+        let _m = mockito::mock("GET", "/gists")
             .with_status(201)
             .with_header("content-type", "text/plain")
             .with_header("x-api-key", "1234")
@@ -128,7 +138,7 @@ mod tests {
             git_token: token,
         };
 
-        let _m = mockito::mock("GET", "/gist")
+        let _m = mockito::mock("GET", "/gists")
             .with_status(201)
             .with_header("content-type", "text/plain")
             .with_header("x-api-key", "1234")
@@ -172,7 +182,7 @@ mod tests {
             url,
             git_token: token,
         };
-         let _m = mockito::mock("GET", "/gist")
+         let _m = mockito::mock("GET", "/gists")
             .with_status(201)
             .with_header("content-type", "text/plain")
             .with_header("x-api-key", "1234")
@@ -201,7 +211,7 @@ mod tests {
             .create();
         let results = match test.find_id(&gist_name) {
             Some(str) => str,
-            None => String::from(""),
+            None => String::from("NONE"),
         };
         let expected = String::from("aa5a315d61ae9438b18d");
         assert_eq!(results, expected)
