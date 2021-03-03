@@ -1,4 +1,5 @@
 use reqwest::Client;
+use serde_json::json;
 use std::fmt::Error;
 use tokio::runtime::Runtime;
 use serde::{Deserialize, Deserializer};
@@ -14,12 +15,32 @@ pub struct GistIo {
 #[derive(Deserialize, Debug)]
 pub struct File {
     filename: String,
+    raw_url: String,
 }
 
 #[derive(Deserialize, Debug)]
-struct GetResp {
+pub struct Gist {
     id: String,
     files: HashMap<String, File>,
+}
+
+impl Gist {
+    pub async fn read(self, filename: &str) -> Option<String> {
+        let url = match self.files.get(filename) {
+            Some(file) => &file.raw_url,
+            None => return None,
+        };
+        let response = match reqwest::get(url).await {
+            Ok(resp) => resp,
+            Err(_) => return None
+
+        };
+
+        match response.text().await {
+            Ok(content) => Some(content),
+            Err(_) => None,
+        }
+    }
 }
 
 impl GistIo {
@@ -33,7 +54,7 @@ impl GistIo {
         }
     }
 
-    fn find_id(self, gist_name: &str) -> Option<String> {
+    pub fn find_gist(&self, gist_name: &str) -> Option<Gist> {
         let rt = Runtime::new().unwrap();
         let resp_built = self.client.get(&format!("{}/gists", &self.url))
             .header("Authorization", format!("token {}", &self.git_token))
@@ -41,31 +62,50 @@ impl GistIo {
         let response = rt.block_on(resp_built.send());
         let response_contents = match response {
             Ok(res) => {
-                match rt.block_on(res.json::<Vec<GetResp>>()) {
+                match rt.block_on(res.json::<Vec<Gist>>()) {
                     Ok(str) => str,
                     Err(e) => {
                         println!("{}", e.to_string());
-                        return None
+                        return None;
                     }
                 }
-            },
+            }
             Err(e) => return None,
         };
 
         for gist in response_contents {
             if gist.files.contains_key(gist_name) {
-                return Some(gist.id)
+                return Some(gist);
             }
         }
-        return None
+        return None;
+    }
+
+    pub fn write_gist(&self, contents: &str, file_name: &str, gist: &Gist) -> Result<(), Error> {
+        let gist_body = json!({
+        "files": {
+             file_name: {
+             "content": contents
+            }
+        }});
+        let response = self.client.patch(&format!("{}/gists/{}", &self.url, gist.id))
+            .header("Authorization", format!("token {}", &self.git_token))
+            .header("user-agent", "reqwest/0.11.1")
+            .json(&gist_body).send();
+
+        let rt = Runtime::new().unwrap();
+        match rt.block_on(response) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(Error),
+        }
     }
 
     fn make_gist_name(name: &str) -> String {
         format!("file_sync_{}", name)
     }
 
-    pub fn check_if_exists(self, gist_name: &str) -> bool {
-        self.find_id(gist_name).is_some()
+    pub fn check_if_exists(&self, gist_name: &str) -> bool {
+        self.find_gist(gist_name).is_some()
     }
 }
 
@@ -172,7 +212,7 @@ mod tests {
     }
 
     #[test]
-    fn test_find_id() {
+    fn test_find_gist() {
         let url = mockito::server_url();
         let gist_name = String::from("test_gist");
         let client = Client::new();
@@ -182,7 +222,7 @@ mod tests {
             url,
             git_token: token,
         };
-         let _m = mockito::mock("GET", "/gists")
+        let _m = mockito::mock("GET", "/gists")
             .with_status(201)
             .with_header("content-type", "text/plain")
             .with_header("x-api-key", "1234")
@@ -209,8 +249,8 @@ mod tests {
                 ]
             "#)
             .create();
-        let results = match test.find_id(&gist_name) {
-            Some(str) => str,
+        let results = match test.find_gist(&gist_name) {
+            Some(str) => str.id,
             None => String::from("NONE"),
         };
         let expected = String::from("aa5a315d61ae9438b18d");
