@@ -17,5 +17,6 @@ fn main() {
         None => return,
     };
     gist_io.write_gist("Writing Test Data", "file_sync_test", &gist);
+    gist_io.write_gist("Writing Test Data", "file_sync_test2", &gist);
 }
 

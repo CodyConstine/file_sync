@@ -100,6 +100,25 @@ impl GistIo {
         }
     }
 
+    pub fn create_gist(&self, contents: &str, file_name: &str) -> Result<(), Error> {
+        let gist_body = json!({
+        "files": {
+             file_name: {
+             "content": contents
+            }
+        }});
+        let response = self.client.post(&format!("{}/gists", &self.url))
+            .header("Authorization", format!("token {}", &self.git_token))
+            .header("user-agent", "reqwest/0.11.1")
+            .json(&gist_body).send();
+
+        let rt = Runtime::new().unwrap();
+        match rt.block_on(response) {
+            Ok(_) => Ok(()),
+            Err(_) => Err(Error),
+        }
+    }
+
     fn make_gist_name(name: &str) -> String {
         format!("file_sync_{}", name)
     }
