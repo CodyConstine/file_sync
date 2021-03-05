@@ -25,7 +25,7 @@ pub struct Gist {
 }
 
 impl Gist {
-    pub async fn read(self, filename: &str) -> Option<String> {
+    async fn read(self, filename: &str) -> Option<String> {
         let url = match self.files.get(filename) {
             Some(file) => &file.raw_url,
             None => return None,

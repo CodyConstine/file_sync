@@ -4,6 +4,7 @@ use tokio::runtime::Runtime;
 
 mod file_io;
 mod gist_io;
+mod file_syncer;
 
 fn main() {
     let gist_io = gist_io::GistIo::new(&env::var("GIT_TOKEN").unwrap());
@@ -17,6 +18,5 @@ fn main() {
         None => return,
     };
     gist_io.write_gist("Writing Test Data", "file_sync_test", &gist);
-    gist_io.write_gist("Writing Test Data", "file_sync_test2", &gist);
 }
 
