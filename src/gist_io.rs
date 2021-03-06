@@ -105,7 +105,7 @@ impl GistIo {
         }
     }
 
-    pub async fn create_gist(&self, contents: &str, file_name: &str) -> Result<(), Error> {
+    pub async fn create_gist(&self, contents: &str, file_name: &str) -> Result<Gist, Error> {
         let gist_body = json!({
         "files": {
              file_name: {
@@ -118,7 +118,10 @@ impl GistIo {
             .json(&gist_body).send();
 
         match response.await {
-            Ok(_) => Ok(()),
+            Ok(_) => match self.find_gist(file_name).await {
+                Ok(gist) => Ok(gist),
+                Err(_) => Err(Error)
+            },
             Err(_) => Err(Error),
         }
     }
