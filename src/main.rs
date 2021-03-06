@@ -5,13 +5,14 @@ mod file_io;
 mod gist_io;
 mod file_syncer;
 
-fn main() {
+#[tokio::main]
+pub async fn main() {
     let gist_io = gist_io::GistIo::new(&env::var("GIT_TOKEN").unwrap());
 
-    let gist = match block_on(gist_io.find_gist("file_sync_test")) {
+    let gist = match gist_io.find_gist("file_sync_test").await {
         Ok(gist) => gist,
         Err(_) => return,
     };
-    gist_io.write_gist("Writing Test Data", "file_sync_test", &gist);
+    gist_io.write_gist("Writing Test Data\nCody Is great", "file_sync_test", &gist).await;
 }
 

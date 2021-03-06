@@ -55,13 +55,12 @@ impl GistIo {
     }
 
     pub async fn find_gist(&self, gist_name: &str) -> Result<Gist, Error> {
-        let rt = Runtime::new().unwrap();
         let response = self.client.get(&format!("{}/gists", &self.url))
             .header("Authorization", format!("token {}", &self.git_token))
             .header("user-agent", "reqwest/0.11.1").send();
         let response_contents = match response.await {
             Ok(res) => {
-                match rt.block_on(res.json::<Vec<Gist>>()) {
+                match res.json::<Vec<Gist>>().await {
                     Ok(str) => str,
                     Err(e) => {
                         println!("{}", e.to_string());
