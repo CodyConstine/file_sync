@@ -25,7 +25,7 @@ pub struct Gist {
 }
 
 impl Gist {
-    async fn read(self, filename: &str) -> Option<String> {
+    async fn read(&self, filename: &str) -> Option<String> {
         let url = match self.files.get(filename) {
             Some(file) => &file.raw_url,
             None => return None,
@@ -95,6 +95,13 @@ impl GistIo {
             Ok(_) => Ok(()),
             // TODO figure out how to make an error
             Err(_) => Err(Error),
+        }
+    }
+
+    pub async fn read_gist(&self, file_name: &str, gist: &Gist) -> Result<String, Error> {
+        match gist.read(file_name).await {
+            Some(str) => Ok(str),
+            None => Err(Error),
         }
     }
 

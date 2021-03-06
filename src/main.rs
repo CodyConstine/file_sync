@@ -14,5 +14,8 @@ pub async fn main() {
         Err(_) => return,
     };
     gist_io.write_gist("Writing Test Data\nCody Is great", "file_sync_test", &gist).await;
+
+    let contents = gist_io.read_gist("file_sync_test", &gist).await.unwrap();
+    println!("{}", contents);
 }
 
