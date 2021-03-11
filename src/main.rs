@@ -16,6 +16,9 @@ pub fn main() {
 
     let new_config = config.add_file(".bashrc", "/home/cody/.bashrc", ".bashrc");
     println!("{:?}", new_config);
+
+    new_config.to_json("test.json");
 }
+
 
 

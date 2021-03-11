@@ -15,7 +15,6 @@ struct File {
     gist_name: String,
 }
 
-
 impl Config {
     pub fn from_json(json_location: &str) -> Option<Config> {
         let contents = fs::read_to_string(json_location)
@@ -23,11 +22,17 @@ impl Config {
 
         match serde_json::from_str(&contents) {
             Ok(config) => config,
-            Err(e) => {
-                println!("{}", e.to_string());
-                None
-            },
+            Err(err) => panic!("Error reading json {:?}", err)
         }
+    }
+
+    pub fn to_json(&self, json_location: &str) {
+        let contents = match serde_json::to_string(self) {
+            Ok(str) => str,
+            Err(err) => panic!("Error deserializing json {:?}", err),
+        };
+
+        fs::write(json_location, contents).expect("Error writing file.");
     }
 
     pub fn add_file(self, name: &str, location: &str, gist_name: &str) -> Config {
